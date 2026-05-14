@@ -5,12 +5,24 @@ on:
     branches:
       - "main"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Deploy mode"
+        required: true
+        default: "full"
+        type: choice
+        options:
+          - full
+          - bootstrap
+          - setup
+          - start
 
 env:
   SSH_PORT: 2222
   DEPLOY_USER: root
   HOST: ${{ vars.HOST }}
   PLAYBOOK_PATH: /root/matrix-docker-ansible-deploy
+  DEPLOY_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'full' }}
 
   MATRIX_PLAYBOOK_MIGRATION_VALIDATED_VERSION: ${{ vars.MATRIX_PLAYBOOK_MIGRATION_VALIDATED_VERSION }}
   MATRIX_DOMAIN: ${{ vars.MATRIX_DOMAIN }}
@@ -66,13 +78,21 @@ jobs:
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "systemctl reset-failed docker.socket docker.service && systemctl restart docker.socket && systemctl restart docker.service && systemctl is-active docker.socket docker.service"
 
       - name: Upload deploy files
+        if: env.DEPLOY_MODE != 'bootstrap'
         run: |
           set -eu
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "mkdir -p ${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space"
           scp -P "${SSH_PORT}" rendered/inventory/hosts "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/hosts"
           scp -P "${SSH_PORT}" rendered/inventory/host_vars/matrix.nu31.space/vars.yml "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space/vars.yml"
 
-      - name: Run playbook
+      - name: Run setup playbook
+        if: env.DEPLOY_MODE == 'full' || env.DEPLOY_MODE == 'setup'
         run: |
           set -eu
-          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=setup-all,start"
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=setup-all"
+
+      - name: Run start playbook
+        if: env.DEPLOY_MODE == 'full' || env.DEPLOY_MODE == 'start'
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=start-all"
