@@ -1,0 +1,35 @@
+matrix_playbook_migration_validated_version: ${MATRIX_PLAYBOOK_MIGRATION_VALIDATED_VERSION}
+matrix_domain: ${MATRIX_DOMAIN}
+matrix_homeserver_implementation: synapse
+matrix_homeserver_generic_secret_key: "${MATRIX_HOMESERVER_GENERIC_SECRET_KEY}"
+
+matrix_playbook_reverse_proxy_type: playbook-managed-traefik
+matrix_playbook_ssl_enabled: true
+devture_systemd_docker_base_ipv6_enabled: true
+
+postgres_enabled: false
+matrix_synapse_database_host: "${POSTGRES_HOST}"
+matrix_synapse_database_port: 5432
+matrix_synapse_database_user: "synapse"
+matrix_synapse_database_password: "${POSTGRES_PASSWORD}"
+matrix_synapse_database_database: "synapse"
+
+traefik_config_entrypoint_web_secure_enabled: false
+traefik_container_web_host_bind_port: "10.10.10.2:81"
+traefik_config_entrypoint_web_forwardedHeaders_trustedIPs:
+  - "10.10.10.3"
+matrix_playbook_public_matrix_federation_api_traefik_entrypoint_host_bind_port: "10.10.10.2:8449"
+matrix_playbook_public_matrix_federation_api_traefik_entrypoint_config_http3_enabled: false
+matrix_playbook_public_matrix_federation_api_traefik_entrypoint_config_custom:
+  forwardedHeaders:
+    trustedIPs:
+      - "10.10.10.3"
+
+cinny_enabled: true
+matrix_client_element_enabled: true
+matrix_synapse_admin_enabled: true
+matrix_synapse_enable_registration: false
+
+# Optional overrides:
+# matrix_client_cinny_hostname: "cinny.{{ matrix_domain }}"
+# matrix_client_element_hostname: "element.{{ matrix_domain }}"

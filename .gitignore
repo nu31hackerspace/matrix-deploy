@@ -1,0 +1,4 @@
+.env
+rendered/
+inventory/hosts
+inventory/host_vars/matrix.nu31.space/vars.yml

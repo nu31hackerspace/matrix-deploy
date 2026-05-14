@@ -1,0 +1,68 @@
+name: Deploy Matrix
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+env:
+  SSH_PORT: 2222
+  DEPLOY_USER: root
+  HOST: ${{ vars.HOST }}
+  PLAYBOOK_PATH: /root/matrix-docker-ansible-deploy
+
+  MATRIX_PLAYBOOK_MIGRATION_VALIDATED_VERSION: ${{ vars.MATRIX_PLAYBOOK_MIGRATION_VALIDATED_VERSION }}
+  MATRIX_DOMAIN: ${{ vars.MATRIX_DOMAIN }}
+  MATRIX_HOMESERVER_GENERIC_SECRET_KEY: ${{ secrets.MATRIX_HOMESERVER_GENERIC_SECRET_KEY }}
+  POSTGRES_HOST: ${{ vars.POSTGRES_HOST }}
+  POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+  POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+  POSTGRES_DATABASE: ${{ vars.POSTGRES_DATABASE }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Render deploy files
+        run: |
+          set -eu
+          export TEMPLATE_PATH=./inventory/hosts.template
+          export OUTPUT_PATH=./rendered/inventory/hosts
+          sh ./scripts/render-template.sh
+
+          export TEMPLATE_PATH=./inventory/host_vars/matrix.nu31.space/vars.yml.template
+          export OUTPUT_PATH=./rendered/inventory/host_vars/matrix.nu31.space/vars.yml
+          sh ./scripts/render-template.sh
+
+      - name: Configure SSH key
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.ROOT_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT}" -H "${HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Update playbook checkout
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "test -d ${PLAYBOOK_PATH}/.git || git clone https://github.com/spantaleev/matrix-docker-ansible-deploy.git ${PLAYBOOK_PATH}"
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && git pull --ff-only"
+
+      - name: Upload deploy files
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "mkdir -p ${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space"
+          scp -P "${SSH_PORT}" rendered/inventory/hosts "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/hosts"
+          scp -P "${SSH_PORT}" rendered/inventory/host_vars/matrix.nu31.space/vars.yml "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space/vars.yml"
+
+      - name: Run playbook
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=setup-all,start"
