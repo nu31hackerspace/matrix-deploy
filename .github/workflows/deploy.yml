@@ -55,6 +55,11 @@ jobs:
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "test -d ${PLAYBOOK_PATH}/.git || git clone https://github.com/spantaleev/matrix-docker-ansible-deploy.git ${PLAYBOOK_PATH}"
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && git pull --ff-only"
 
+      - name: Install Ansible roles
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && rm -rf roles/galaxy && ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force"
+
       - name: Upload deploy files
         run: |
           set -eu
