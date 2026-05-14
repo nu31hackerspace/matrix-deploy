@@ -60,6 +60,11 @@ jobs:
           set -eu
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && rm -rf roles/galaxy && ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force"
 
+      - name: Ensure Docker is running
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "systemctl reset-failed docker.socket docker.service && systemctl restart docker.socket && systemctl restart docker.service && systemctl is-active docker.socket docker.service"
+
       - name: Upload deploy files
         run: |
           set -eu
