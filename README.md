@@ -38,7 +38,7 @@ GitHub `secrets`:
 - Base domain service discovery: `/.well-known/matrix/*` on `nu31.space`
 - Public client UI: Cinny
 - Fallback client: Element Web
-- Admin UI: Synapse Admin
+- Admin UI: Ketesa
 - Database: external PostgreSQL on `nu31-vm`
 - Reverse proxy: playbook-managed Traefik fronted by `nu31-vm` Caddy
 

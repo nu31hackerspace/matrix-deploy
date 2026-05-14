@@ -27,7 +27,7 @@ matrix_playbook_public_matrix_federation_api_traefik_entrypoint_config_custom:
 
 cinny_enabled: true
 matrix_client_element_enabled: true
-matrix_synapse_admin_enabled: true
+matrix_ketesa_enabled: true
 matrix_synapse_enable_registration: false
 
 # Optional overrides:
