@@ -30,6 +30,12 @@ matrix_client_element_enabled: true
 matrix_ketesa_enabled: true
 matrix_synapse_enable_registration: false
 
+# Optional bridges:
+matrix_mautrix_telegram_enabled: ${MATRIX_MAUTRIX_TELEGRAM_ENABLED}
+matrix_mautrix_telegram_api_id: "${MATRIX_MAUTRIX_TELEGRAM_API_ID}"
+matrix_mautrix_telegram_api_hash: "${MATRIX_MAUTRIX_TELEGRAM_API_HASH}"
+matrix_mautrix_discord_enabled: ${MATRIX_MAUTRIX_DISCORD_ENABLED}
+
 # Optional overrides:
 # matrix_client_cinny_hostname: "cinny.{{ matrix_domain }}"
 # matrix_client_element_hostname: "element.{{ matrix_domain }}"
