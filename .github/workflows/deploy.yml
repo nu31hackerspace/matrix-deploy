@@ -39,7 +39,7 @@ env:
 
 jobs:
   bootstrap:
-    if: env.DEPLOY_MODE == 'bootstrap'
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'bootstrap'
     runs-on: ubuntu-latest
 
     steps:
@@ -83,7 +83,7 @@ jobs:
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "systemctl reset-failed docker.socket docker.service && systemctl restart docker.socket && systemctl restart docker.service && systemctl is-active docker.socket docker.service"
 
   setup:
-    if: env.DEPLOY_MODE == 'setup'
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'setup'
     runs-on: ubuntu-latest
 
     steps:
@@ -139,7 +139,7 @@ jobs:
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=setup-all"
 
   start:
-    if: env.DEPLOY_MODE == 'start'
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'start'
     runs-on: ubuntu-latest
 
     steps:
@@ -195,7 +195,7 @@ jobs:
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=start-all"
 
   full:
-    if: env.DEPLOY_MODE == 'full'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'full')
     runs-on: ubuntu-latest
 
     steps:
