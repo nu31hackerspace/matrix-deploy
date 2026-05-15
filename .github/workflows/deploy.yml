@@ -38,7 +38,52 @@ env:
   POSTGRES_DATABASE: ${{ vars.POSTGRES_DATABASE }}
 
 jobs:
-  deploy:
+  bootstrap:
+    if: env.DEPLOY_MODE == 'bootstrap'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Render deploy files
+        run: |
+          set -eu
+          export TEMPLATE_PATH=./inventory/hosts.template
+          export OUTPUT_PATH=./rendered/inventory/hosts
+          sh ./scripts/render-template.sh
+
+          export TEMPLATE_PATH=./inventory/host_vars/matrix.nu31.space/vars.yml.template
+          export OUTPUT_PATH=./rendered/inventory/host_vars/matrix.nu31.space/vars.yml
+          sh ./scripts/render-template.sh
+
+      - name: Configure SSH key
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.ROOT_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT}" -H "${HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Update playbook checkout
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "test -d ${PLAYBOOK_PATH}/.git || git clone https://github.com/spantaleev/matrix-docker-ansible-deploy.git ${PLAYBOOK_PATH}"
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && git pull --ff-only"
+
+      - name: Install Ansible roles
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && rm -rf roles/galaxy && ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force"
+
+      - name: Ensure Docker is running
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "systemctl reset-failed docker.socket docker.service && systemctl restart docker.socket && systemctl restart docker.service && systemctl is-active docker.socket docker.service"
+
+  setup:
+    if: env.DEPLOY_MODE == 'setup'
     runs-on: ubuntu-latest
 
     steps:
@@ -82,7 +127,6 @@ jobs:
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "systemctl reset-failed docker.socket docker.service && systemctl restart docker.socket && systemctl restart docker.service && systemctl is-active docker.socket docker.service"
 
       - name: Upload deploy files
-        if: env.DEPLOY_MODE != 'bootstrap'
         run: |
           set -eu
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "mkdir -p ${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space"
@@ -90,13 +134,123 @@ jobs:
           scp -P "${SSH_PORT}" rendered/inventory/host_vars/matrix.nu31.space/vars.yml "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space/vars.yml"
 
       - name: Run setup playbook
-        if: env.DEPLOY_MODE == 'full' || env.DEPLOY_MODE == 'setup'
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=setup-all"
+
+  start:
+    if: env.DEPLOY_MODE == 'start'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Render deploy files
+        run: |
+          set -eu
+          export TEMPLATE_PATH=./inventory/hosts.template
+          export OUTPUT_PATH=./rendered/inventory/hosts
+          sh ./scripts/render-template.sh
+
+          export TEMPLATE_PATH=./inventory/host_vars/matrix.nu31.space/vars.yml.template
+          export OUTPUT_PATH=./rendered/inventory/host_vars/matrix.nu31.space/vars.yml
+          sh ./scripts/render-template.sh
+
+      - name: Configure SSH key
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.ROOT_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT}" -H "${HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Update playbook checkout
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "test -d ${PLAYBOOK_PATH}/.git || git clone https://github.com/spantaleev/matrix-docker-ansible-deploy.git ${PLAYBOOK_PATH}"
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && git pull --ff-only"
+
+      - name: Install Ansible roles
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && rm -rf roles/galaxy && ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force"
+
+      - name: Ensure Docker is running
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "systemctl reset-failed docker.socket docker.service && systemctl restart docker.socket && systemctl restart docker.service && systemctl is-active docker.socket docker.service"
+
+      - name: Upload deploy files
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "mkdir -p ${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space"
+          scp -P "${SSH_PORT}" rendered/inventory/hosts "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/hosts"
+          scp -P "${SSH_PORT}" rendered/inventory/host_vars/matrix.nu31.space/vars.yml "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space/vars.yml"
+
+      - name: Run start playbook
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=start-all"
+
+  full:
+    if: env.DEPLOY_MODE == 'full'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Render deploy files
+        run: |
+          set -eu
+          export TEMPLATE_PATH=./inventory/hosts.template
+          export OUTPUT_PATH=./rendered/inventory/hosts
+          sh ./scripts/render-template.sh
+
+          export TEMPLATE_PATH=./inventory/host_vars/matrix.nu31.space/vars.yml.template
+          export OUTPUT_PATH=./rendered/inventory/host_vars/matrix.nu31.space/vars.yml
+          sh ./scripts/render-template.sh
+
+      - name: Configure SSH key
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.ROOT_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT}" -H "${HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Update playbook checkout
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "test -d ${PLAYBOOK_PATH}/.git || git clone https://github.com/spantaleev/matrix-docker-ansible-deploy.git ${PLAYBOOK_PATH}"
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && git pull --ff-only"
+
+      - name: Install Ansible roles
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && rm -rf roles/galaxy && ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force"
+
+      - name: Ensure Docker is running
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "systemctl reset-failed docker.socket docker.service && systemctl restart docker.socket && systemctl restart docker.service && systemctl is-active docker.socket docker.service"
+
+      - name: Upload deploy files
+        run: |
+          set -eu
+          ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "mkdir -p ${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space"
+          scp -P "${SSH_PORT}" rendered/inventory/hosts "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/hosts"
+          scp -P "${SSH_PORT}" rendered/inventory/host_vars/matrix.nu31.space/vars.yml "${DEPLOY_USER}@${HOST}:${PLAYBOOK_PATH}/inventory/host_vars/matrix.nu31.space/vars.yml"
+
+      - name: Run setup playbook
         run: |
           set -eu
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=setup-all"
 
       - name: Run start playbook
-        if: env.DEPLOY_MODE == 'full' || env.DEPLOY_MODE == 'start'
         run: |
           set -eu
           ssh -p "${SSH_PORT}" "${DEPLOY_USER}@${HOST}" "cd ${PLAYBOOK_PATH} && ansible-playbook -i inventory/hosts setup.yml --tags=start-all"

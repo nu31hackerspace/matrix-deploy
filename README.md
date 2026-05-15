@@ -32,8 +32,8 @@ GitHub `secrets`:
 - syncs them to `nu31forum`
 - pulls `spantaleev/matrix-docker-ansible-deploy`
 - installs Ansible roles
-- runs the playbook in one of these modes:
+- runs one of these jobs:
   - `full` - setup + start
   - `bootstrap` - playbook checkout + roles only
   - `setup` - upload config + `--tags=setup-all`
-  - `start` - `--tags=start-all`
+  - `start` - upload config + `--tags=start-all`
